@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+                        http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+                        http://www.springframework.org/schema/util
+                        http://www.springframework.org/schema/util/spring-util-4.0.xsd">
+
+
+    <!-- 这里的name需要与filter的ShiroFilter一致 -->
+    <bean name="shiroFilter" class="org.apache.shiro.spring.web.ShiroFilterFactoryBean"
+          p:securityManager-ref="securityManager" p:loginUrl="/loginIndex.html"
+          p:successUrl="/common/success.html" p:unauthorizedUrl="/common/fail.html">
+        <property name="filters">
+            <util:map>
+                <entry key="authc" value-ref="formAuthenticationFilter"/>
+                <!--<entry key="roles" value-ref="rolesAuthorizationFilter"/>-->
+            </util:map>
+        </property>
+        <property name="filterChainDefinitions">
+            <value>
+                /login.html=anon
+                /common/success.html=roles[SYSTEM]
+                /common/test.html=user
+            </value>
+        </property>
+    </bean>
+
+    <bean id="rolesAuthorizationFilter" class="org.apache.shiro.web.filter.authz.RolesAuthorizationFilter"
+          p:loginUrl="/login.html" p:unauthorizedUrl="/common/fail.html"/>
+    <bean id="formAuthenticationFilter" class="org.apache.shiro.web.filter.authc.FormAuthenticationFilter"
+          p:usernameParam="userName" p:passwordParam="password"
+          p:rememberMeParam="rememberMe" p:loginUrl="/loginIndex.html"
+          p:successUrl="/common/success.html" p:failureKeyAttribute="shiroLoginFailure"/>
+
+    <bean id="sessionIdCookie" class="org.apache.shiro.web.servlet.SimpleCookie"
+          p:httpOnly="true" p:maxAge="-1">
+        <constructor-arg value="sid" />
+    </bean>
+    <!-- 记住我 -->
+    <bean id="rememberMeCookie" class="org.apache.shiro.web.servlet.SimpleCookie"
+          p:httpOnly="true" p:maxAge="2592000">
+        <constructor-arg value="rememberMe" />
+    </bean>
+    <bean id="rememberMeManager" class="org.apache.shiro.web.mgt.CookieRememberMeManager" p:cookie-ref="rememberMeCookie" />
+
+    <!--p:cipherKey="#{T(org.apache.shiro.codec.Base64).decode('4AvVhmFLUs0KTA3Kprsdag==')}"-->
+    <bean id="securityManager" class="org.apache.shiro.web.mgt.DefaultWebSecurityManager" p:realm-ref="myRealm" p:rememberMeManager-ref="rememberMeManager"/>
+
+    <!-- 密码匹配，此bean会将AuthenticationToken的Credentials进行加密 -->
+    <bean id="hashedCredentialsMatcher" class="org.fsr.sso.support.auth.CustomCredentialsMatcher"
+          p:hashAlgorithmName="md5" p:hashIterations="1" p:storedCredentialsHexEncoded="true" />
+
+    <bean id="myRealm" class="org.fsr.sso.support.auth.LoginRealm" p:credentialsMatcher-ref="hashedCredentialsMatcher"
+          p:cachingEnabled="false"/>
+    <bean id="defaultPasswordService" class="org.apache.shiro.authc.credential.DefaultPasswordService" />
+
+
+    <!--<bean class="org.springframework.beans.factory.dev.config.MethodInvokingFactoryBean"-->
+    <!--p:staticMethod="org.apache.dev.auth.SecurityUtils.setSecurityManager" p:arguments-ref="securityManager"/>-->
+
+    <!-- 静态切点(日后再改备注) -->
+    <bean class="org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor"
+          p:securityManager-ref="securityManager"/>
+
+    <!-- 配置Bean后置处理器：会自动调用和Spring整合后各个组件的生命周期和方法 -->
+    <bean id="lifecycleBeanPostProcessor" class="org.apache.shiro.spring.LifecycleBeanPostProcessor"/>
+
+</beans>
